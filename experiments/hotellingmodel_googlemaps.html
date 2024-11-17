@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Places API Text Search Example</title>
+    
+</head>
+<body>
+    <input type="text" id="apiKey" placeholder="Enter your API Key">
+    <button onclick="loadMapScript()">Load Map</button>
+    <br><br>
+    <div id="map" style="height: 400px; width: 100%;"></div>
+    
+    <h1>Find Places using Text Search</h1>
+    <input type="text" id="query" placeholder="Enter a place (e.g., coffee shops in New York)">
+    <button onclick="findPlaces()">Search</button>
+    <ul id="results"></ul>
+    <div id="silhouetteResult" style="margin-top: 20px;"></div>
+
+    <script>
+        function displaySilhouetteResult() {
+            const resultsList = document.getElementById('results');
+            const numCoordinates = allCoordinates.length;
+            let silhouetteCoefficientText = 'Not enough points to calculate silhouette coefficient.';
+            if (numCoordinates >= 2) {
+                let totalCoefficient = 0;
+                for (let i = 0; i < allCoordinates.length; i++) {
+                    let a = 0;
+                    let b = Infinity;
+                    for (let j = 0; j < allCoordinates.length; j++) {
+                        if (i !== j) {
+                            const distance = Math.sqrt(
+                                Math.pow(allCoordinates[i][0] - allCoordinates[j][0], 2) +
+                                Math.pow(allCoordinates[i][1] - allCoordinates[j][1], 2)
+                            );
+                            if (distance < b) {
+                                b = distance;
+                            }
+                            a += distance;
+                        }
+                    }
+                    a /= (allCoordinates.length - 1);
+                    totalCoefficient += (b - a) / Math.max(a, b);
+                }
+                const silhouetteCoefficient = totalCoefficient / allCoordinates.length;
+                silhouetteCoefficientText = `Silhouette Coefficient: ${silhouetteCoefficient}`;
+            }
+            const resultDiv = document.getElementById('silhouetteResult');
+            resultDiv.textContent = `${silhouetteCoefficientText} - Number of Coordinates: ${numCoordinates}`;
+        }
+        function loadMapScript() {
+            const apiKey = document.getElementById('apiKey').value;
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
+            script.async = true;
+            document.head.appendChild(script);
+        }
+        function calculateSilhouetteCoefficient(coordinates) {
+            if (coordinates.length < 2) {
+                console.log('Not enough points to calculate silhouette coefficients.');
+                return;
+            }
+            // Simple silhouette coefficient calculation example
+            // This is just a placeholder for the actual algorithm
+            let totalCoefficient = 0;
+            for (let i = 0; i < coordinates.length; i++) {
+                let a = 0;
+                let b = Infinity;
+                for (let j = 0; j < coordinates.length; j++) {
+                    if (i !== j) {
+                        const distance = Math.sqrt(
+                            Math.pow(coordinates[i][0] - coordinates[j][0], 2) +
+                            Math.pow(coordinates[i][1] - coordinates[j][1], 2)
+                        );
+                        if (distance < b) {
+                            b = distance;
+                        }
+                        a += distance;
+                    }
+                }
+                a /= (coordinates.length - 1);
+                totalCoefficient += (b - a) / Math.max(a, b);
+            }
+            const silhouetteCoefficient = totalCoefficient / coordinates.length;
+            console.log('Silhouette Coefficient:', silhouetteCoefficient);
+        }
+        let map;
+        let bounds;
+        let allCoordinates = [];
+        function resetCoordinates() {
+            allCoordinates = [];
+        }
+
+        window.initMap = function() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 37.7749, lng: -122.4194 },
+                zoom: 8
+            });
+
+            bounds = new google.maps.LatLngBounds();
+
+            map.addListener('bounds_changed', function() {
+                bounds = map.getBounds();
+            });
+        }
+        function findPlaces() {
+            resetCoordinates();
+                        const query = document.getElementById('query').value;
+            const geocoder = new google.maps.Geocoder();
+            if (query) {
+                geocoder.geocode({ address: query }, function(results, status) {
+                    if (status === google.maps.GeocoderStatus.OK) {
+                        map.setCenter(results[0].geometry.location);
+                        map.setZoom(12);
+                    } else {
+                        console.error('Geocoding failed:', status);
+                    }
+                });
+            }
+            const service = new google.maps.places.PlacesService(document.createElement('div'));
+            const request = {
+                                bounds: bounds,
+                query: query,
+                fields: ['name', 'formatted_address', 'geometry', 'rating', 'geometry.location']
+            };
+
+            service.textSearch(request, function processResults(results, status, pagination) {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    results = results || [];
+                    const filteredResults = results.filter(place => bounds.contains(place.geometry.location));
+                    displayResults(filteredResults);
+                    if (pagination && pagination.hasNextPage) {
+                        pagination.nextPage();
+                    } else {
+                        calculateSilhouetteCoefficient(allCoordinates);
+                        displaySilhouetteResult();
+                    }
+                } else {
+                    console.error('Places search failed:', status);
+                }
+            });
+        }
+
+        function displayResults(places) {
+            const resultsList = document.getElementById('results');
+            resultsList.innerHTML = '';
+
+            places.forEach(place => {
+                if (bounds.contains(place.geometry.location)) {
+                    const li = document.createElement('li');
+                    li.textContent = `${place.name} - ${place.formatted_address} - Rating: ${place.rating} - Latitude: ${place.geometry.location.lat()} - Longitude: ${place.geometry.location.lng()}`;
+                    resultsList.appendChild(li);
+                    allCoordinates.push([place.geometry.location.lat(), place.geometry.location.lng()]);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
