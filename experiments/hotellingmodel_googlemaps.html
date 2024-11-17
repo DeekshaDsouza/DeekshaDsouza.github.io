@@ -84,13 +84,19 @@
             console.log('Silhouette Coefficient:', silhouetteCoefficient);
         }
         let map;
+        let markers = [];
         let bounds;
         let allCoordinates = [];
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+        }
         function resetCoordinates() {
             allCoordinates = [];
         }
 
         window.initMap = function() {
+            clearMarkers();
             map = new google.maps.Map(document.getElementById('map'), {
                 center: { lat: 37.7749, lng: -122.4194 },
                 zoom: 8
@@ -103,8 +109,9 @@
             });
         }
         function findPlaces() {
+            clearMarkers(); // Clear old markers before new search
             resetCoordinates();
-                        const query = document.getElementById('query').value;
+            const query = document.getElementById('query').value;
             const geocoder = new google.maps.Geocoder();
             if (query) {
                 geocoder.geocode({ address: query }, function(results, status) {
@@ -118,7 +125,7 @@
             }
             const service = new google.maps.places.PlacesService(document.createElement('div'));
             const request = {
-                                bounds: bounds,
+                bounds: bounds,
                 query: query,
                 fields: ['name', 'formatted_address', 'geometry', 'rating', 'geometry.location']
             };
@@ -150,6 +157,12 @@
                     li.textContent = `${place.name} - ${place.formatted_address} - Rating: ${place.rating} - Latitude: ${place.geometry.location.lat()} - Longitude: ${place.geometry.location.lng()}`;
                     resultsList.appendChild(li);
                     allCoordinates.push([place.geometry.location.lat(), place.geometry.location.lng()]);
+                    const marker = new google.maps.Marker({
+                        position: place.geometry.location,
+                        map: map,
+                        title: place.name
+                    });
+                    markers.push(marker);
                 }
             });
         }
