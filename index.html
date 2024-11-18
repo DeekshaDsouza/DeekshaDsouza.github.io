@@ -12,43 +12,43 @@
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
     <style>
         body {
-            background-color: #fafafa;
-            color: #2d3436;
+            background-color: hsla(0, 0%, 98%, 1);
+            color: hsla(204, 8%, 76%, 1);
             font-family: 'Nunito', sans-serif;
         }
         .header-section {
-            background: white;
+            background: hsla(0, 0%, 100%, 1);
             border-radius: 16px;
             padding: 32px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 6px hsla(0, 0%, 0%, 0.05);
         }
         .card {
             border: none;
             border-radius: 12px;
-            background: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            background: hsla(0, 0%, 100%, 1);
+            box-shadow: 0 4px 6px hsla(0, 0%, 0%, 0.05);
             padding: 24px;
             height: 100%;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 6px 12px hsla(0, 0%, 0%, 0.08);
         }
         .badge {
-            background-color: rgba(243, 229, 171, 0.3) !important;
-            color: #8B4513 !important;
+            background-color: hsla(43, 75%, 81%, 0.3) !important;
+            color: hsla(25, 76%, 31%, 1) !important;
             font-weight: 500;
             padding: 6px 12px;
             border-radius: 20px;
             font-size: 0.8rem;
         }
         .section-title {
-            color: #8B4513;
+            color: hsla(25, 76%, 31%, 1);
             font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 1px;
-            background: rgba(243, 229, 171, 0.2);
+            background: hsla(43, 75%, 81%, 0.2);
             padding: 8px 16px;
             border-radius: 25px;
             display: inline-block;
@@ -61,16 +61,31 @@
             margin-top: 1.5rem;
         }
         .contact-links a {
-            color: #8B4513 !important;
+            color: hsla(25, 76%, 31%, 1) !important;
             text-decoration: none;
             transition: color 0.2s ease;
             font-size: 0.9rem;
         }
         .contact-links a:hover {
-            color: #F3E5AB !important;
+            color: hsla(43, 75%, 81%, 1) !important;
         }
-        h1, h2, h3 {
+        h1 {
+            color: hsla(204, 28%, 18%, 1);
             font-weight: 700;
+        }
+        h2 {
+            color: hsla(204, 16%, 24%, 1);
+            font-weight: 700;
+        }
+        h3 {
+            color: hsla(204, 20%, 32%, 1);
+            font-weight: 700;
+        }
+        p {
+            color: hsla(204, 8%, 46%, 1);
+        }
+        .text-muted {
+            color: hsla(204, 8%, 56%, 1) !important;
         }
     </style>
 </head>
