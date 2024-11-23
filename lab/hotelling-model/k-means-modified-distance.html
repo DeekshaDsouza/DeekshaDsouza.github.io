@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Means Clustering Visualization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: crosshair;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+        }
+        .point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #0d6efd;
+            transform: translate(-50%, -50%);
+            cursor: move;
+        }
+        .cluster-center {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #dc3545;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">K-Means Clustering Visualization</h5>
+                        <div class="btn-group mb-3" role="group">
+                            <button class="btn btn-outline-primary" id="addDensityBtn">
+                                <i class="fas fa-plus me-2"></i>Add Density Points
+                            </button>
+                            <button class="btn btn-outline-success" id="addClusterBtn">
+                                <i class="fas fa-circle me-2"></i>Add Cluster
+                            </button>
+                            <button class="btn btn-outline-danger" id="removePointBtn">
+                                <i class="fas fa-minus me-2"></i>Remove Points
+                            </button>
+                        </div>
+                        <div class="mb-3">
+                            <button class="btn btn-warning me-2" id="clearCanvasBtn">
+                                <i class="fas fa-eraser me-2"></i>Clear Canvas
+                            </button>
+                            <button class="btn btn-info me-2" id="randomClustersBtn">
+                                <i class="fas fa-random me-2"></i>Generate Random Clusters
+                            </button>
+                            <button class="btn btn-secondary" id="togglePointsBtn">
+                                <i class="fas fa-map-marker-alt me-2"></i>Toggle Points A/B
+                            </button>
+                        </div>
+                        <div class="input-group mb-3" style="max-width: 200px;">
+                            <span class="input-group-text">K =</span>
+                            <input type="number" class="form-control" id="kValue" value="3" min="1" max="10">
+                        </div>
+                        <div class="input-group mb-3" style="max-width: 300px;">
+                            <span class="input-group-text">Cluster Radius:</span>
+                            <input type="range" class="form-range" id="clusterRadius" min="10" max="100" value="30">
+                            <span class="input-group-text" id="radiusValue">30</span>
+                        </div>
+                        <div class="input-group mb-3" style="max-width: 300px;">
+                            <span class="input-group-text">Density Gaussian Radius:</span>
+                            <input type="range" class="form-range" id="densityRadius" min="5" max="50" value="15">
+                            <span class="input-group-text" id="densityRadiusValue">15</span>
+                        </div>
+                        <button class="btn btn-primary me-2" id="calculateBtn">
+                            <i class="fas fa-calculator me-2"></i>Calculate Clusters
+                        </button>
+                        <button class="btn btn-primary" id="calculateDensityBtn">
+                            <i class="fas fa-chart-area me-2"></i>Calculate Density
+                        </button>
+                    </div>
+                    <div class="input-group mb-3" style="max-width: 300px;">
+                        <span class="input-group-text">Step Length:</span>
+                        <input type="range" class="form-range" id="stepLength" min="5" max="50" value="10">
+                        <span class="input-group-text" id="stepLengthValue">10</span>
+
+                        
+                    </div>
+                    <div class="input-group mb-3" style="max-width: 300px;">
+                        <span class="input-group-text">Distance A-B:</span>
+                        <span class="input-group-text" id="distanceDisplayAB">0.00</span>
+                    </div>
+                    <div class="input-group mb-3" style="max-width: 300px;">
+                        <span class="input-group-text">Distance A-C:</span>
+                        <span class="input-group-text" id="distanceDisplayAC">0.00</span>
+                    </div>
+                    <div class="input-group mb-3" style="max-width: 300px;">
+                        <span class="input-group-text">Distance B-C:</span>
+                        <span class="input-group-text" id="distanceDisplayBC">0.00</span>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div id="canvas-container">
+                            <canvas id="canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let densityPoints = [];
+        let clusters = [];
+        let mode = 'add';
+        let isDragging = false;
+        let dragPoint = null;
+        
+        // Points A and B
+        let pointA = { x: 100, y: 250 };
+        let pointB = { x: 400, y: 250 };
+        let pointC = { x: 250, y: 100 };
+        let showPoints = true;
+        let selectedPoint = null;
+
+        const canvas = document.getElementById('canvas');
+        const container = document.getElementById('canvas-container');
+        const ctx = canvas.getContext('2d');
+        const radiusSlider = document.getElementById('clusterRadius');
+        const radiusValue = document.getElementById('radiusValue');
+        const densityRadiusSlider = document.getElementById('densityRadius');
+        const densityRadiusValue = document.getElementById('densityRadiusValue');
+
+        // Function to calculate Gaussian value at a point
+        function gaussian(x, y, centerX, centerY, sigma) {
+            const dx = x - centerX;
+            const dy = y - centerY;
+            return Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
+        }
+
+        // Function to calculate normalized density at a point
+        function calculateDensityAtPoint(x, y, sigma) {
+            let density = 0;
+            densityPoints.forEach(point => {
+                density += gaussian(x, y, point.x, point.y, sigma);
+            });
+            return density;
+        }
+
+        let maxDensity = 0;
+
+        // Function to draw density plot
+        function drawDensityPlot() {
+            const sigma = parseInt(densityRadiusSlider.value);
+            const imageData = ctx.createImageData(canvas.width, canvas.height);
+            let maxDensity = 0;
+
+            // First pass to find max density for normalization
+            for (let x = 0; x < canvas.width; x += 2) {
+                for (let y = 0; y < canvas.height; y += 2) {
+                    const density = calculateDensityAtPoint(x, y, sigma);
+                    maxDensity = Math.max(maxDensity, density);
+                }
+            }
+
+            // Second pass to draw normalized density
+            for (let x = 0; x < canvas.width; x += 2) {
+                for (let y = 0; y < canvas.height; y += 2) {
+                    const density = calculateDensityAtPoint(x, y, sigma);
+                    const normalizedDensity = density / maxDensity;
+                    
+                    // Set pixel color (blue with opacity based on density)
+                    const index = (y * canvas.width + x) * 4;
+                    imageData.data[index] = 0;     // RThe distinct is a question that's been kept oh God I hope that's suit Right right right right right right Hey help me out with I hope that so high humans work together I'm going to ask for some mostly so that's a scary part for me High degree of agreeability this is a nightmare some woman that I slept with and screwed over is trying to ruin my life god why is this happening to me it's karma no it's not karma she's stripping in Vegas plus we're good look if you want to figure out who it is why don't you just start by checking your list My list dude do not pretend you're not the kind of guy who keeps a list of all the girls he slept with I have one let's go up my marriage license come on let's see the list ted don't be crass I would never demean the women that I've slept with by putting their names on some tawdry list this is a scrapbook of all of the women I've slept with I made it at the scrapbook barn on 7 ask for Halloween television What do you think though recognize the saboteur I don't know Barney I only saw our face i'm going to these girls know they're being photographed all of them but only about half by a copy on the way on you're never going to figure out which of these is the mystery woman all of these women have a right to hate you Oh come on lighting up I mean any girl who's going to be with a guy like Barney and do this or that or this and that or do this with those in that I mean she should know what she was getting into absolutely and what I do with these women should be between me and them And you guys and Halloween she helped me do the decoupage I don't know Bernie I don't recognize any of these ones I mean some minor celebrities when government official and what appears to be a national fast food chain mascot this is impossible There's too many girls how the hell am I going to narrow this down the top 64 women I've slept with split into four regions this tournament systematically narrowed down which girl has the most cause to hate my guts last girl standing has to be the saboteur absolutely not barney we're not going to make a game out of the women you've tricked into sleeping with you alex we thought he had 12 hours to live has way more cause to ruin his life than the girly fake proposed it's fake proposal girl I mean she hired a wedding planner to live that girl flew them both to Paris The only part of a one way ticket everybody hands 12 hours away damn it oK toss up thought it was Jorge Pasada or you have my dead wifes kidney she bought Yankees season tickets to watch him play kidney how are we even discussing this Fake babies big baby I was there trust me it's fake baby down to this week sixteen and coming out of the Upper West Side we have the number three seed girl who thought I owned Google up against the number seven seed girl who thought I was a scuba instructor You got to go scuba instructor you're kidding me she got the benz yeah she did evil twins of Norway how can it not be Prince of Norway barney you're the tiebreaker I'm going with evil twin but I did sleep with that girl twice as Barney and Larney Okay we're down to the final four what do you think people come on dig deep I can't decide it could be anyone of them I thought the blackboard from my classroom Come on Marshall I'm tired and sad I'll call my mom just tell her I love her okay then this is as far as we get The final four it's got to be Meg Anna Kate or Holly we are going to track these girls down and you're going to tell me which one approached you at the bar you guys stole my black bar OK there's a building when she comes out I'm going to hide and once you figure out if she's the girl from the bar we run like hell that woman like every woman in your final four deserves an apology and I'm not telling you she's the one until I hear you say I'm sorry are you nuts That would involve me speaking to a woman I've already had sex with which frankly is a little bit like changing the oil in a rental car Barney you're doing this lily this girl hates me I hooked up with her in an apartment I was pretending was my own told her I loved her and then ditched her there she got arrested for trespassing bit a cop and spent eight days in jail oh crap there she is if she sees me she's going to kill me here's what we're going to do hey over here What good is your old friend Barney Barney she kills me I want you to go into my apartment grab the metal briefcase under my bed and throw it in the East River what are you doing here look Mag we need to talk it was all my fault I know it was baby I just came on too strong and I forgive you I love you oh my god look she's not the one but you still owe her in the so you remember who this one is right Yes you told her you were Ted and that you were an architect right and if you recall our computer had a webcam and AT 1 line so I know you've already showed me and that still doesn't count as a Christmas present go over there and apologize Other shoes when she's holding hot coffee maybe she'll throw it in your face you're really enjoying this are you i'm making a scrapbook anna I look who it is Mr Bigshot Architect if you're here to ask me to takedown the website forget it What website ted Mosby is a jerk .com you're right I do deserve that that's all I came here to say I don't care who knows about it excuse me excuse me I Ted Mosby am a jerk to women tell your sisters tell your daughters to stay away ed Mosbyisajerk.com and that little website went on to get 400,000 hits thanks Barney thank you which one is the skin she's learning good have you lost weight I went down to the number one seed I knew it was Holly it had to be Holly then I was hoping it wasn't Holly all right you hear that somebody's stealing my truck Maureen Barney that is the worst thing you've ever done that is the worst thing anyone has ever done but in my defense she was kind of annoying she's going to kill her arnie holly mark come over here Arnie this is my fiance mark you're the Barney who ditched her in the woods don't you want an apology an admission of guilt your truck back no whatever happened within the past and Mark is my presence and my future and if you ditching Hollywood's made her stop running around with guys like you Then cheers well then to the last 4th of July weekend I'll spend getting eaten alive by mosquitoes 4th of July we started dating in June we ruined their lives and the worst part of it is that you didn't apologize to any of those women no the worst part is that we still have no idea who my Stalker is well that's because you're going about this all wrong I mean why chase someone who is following you all you need to do is go down to the bar hit on someone and wait until she turns up that's not a bad idea oh I'll pretend to be the girl that you're hitting on I don't know it's a lot riding on a girl who giggles when she lies I do not have you ever fallen asleep while eating ribs well I can do this okay I mean how else are you going to find out who this girl is I'm in okay here's how it's going to work now Lilly she knows what you look like so just hang out with the jukebox and don't draw any attention to yourself and the guys will be in the booth just pretending to have a normal conversation with your talking hard words you're our words why is this so hard laughter and then I'll come in looking hot as all hell wow you are gorgeous Oh God I know that's awful I just and then Barney will make his move hey there how are you doing fine barney I mean fine stranger you really are awful at this get your hand off my life aren't you it's supposed to look like we're about to hook up robin you know I'm curious what do you say to these girls to get them to come home with you Usually I just lean in and whisper this one thing in there get a little turned on right now aren't you Look somebody's watching us make your move to the bathroom i'm gonna go to the bathroom now But when I come back we'll go to my place and have sex blonde girl hangover to robin right now we are go I don't know what to do with your hands what do I normally do with my hands I don't recognize her she's not on the top 64 not even on the bracket wow cinderella story comes out of nowhere to win the whole thing that'll warm your heart I don't even recognize her hey I don't remember you i've spent the last two days trying to remember every girl that I've slept with and all of the horrible things that I have done to them and I have done some horrible things I mean at 1 point I'm pretty sure I sold a woman I didn't speak the language but I shook a guy's hand he gave me the keys to a Mercedes and I left her there I'm the guy who keeps a scrapbook of all of the women I have slept with but I never thought I was the guy who would sleep with a girl and not even remember her so from the bottom of my heart for whatever I did to you I apologize barney oh I'm so proud of you That's not her i'm so sorry what's funny i'm sorry that's my friend Sally from work we just thrown into each other so I apologize for nothing yes but it was a great apology and a perfect way to end my scrapbook i'm going to call this photo Could you stop giving me that finger Eventually Barney did figure out who the mysterious girl was but more on that later Garnier you have a shuttle launch tomorrow and asteroid that's hit it from Manhattan it's not going to destroy itself oh kids the spring of 2008 was a pretty great time for me Still and I had started dating and I just gotten a big razor work so I decided to purchase something I knew would be the envy of all my friends a new car heck this is New York City you're never going to drive it this is a really really stupid purchase and and I'm sorry but none of us can support it Taken fraternity you can't fraternity I just called it you can't just call things Barney I called it I can call things are you OK OK what happened they always told me that that working at a big law firm was like being at war you get out of law school it's like getting out of boot camp that first day of work you're storming
+                    imageData.data[index + 1] = 0; // G
+                    imageData.data[index + 2] = 255; // B
+                    imageData.data[index + 3] = normalizedDensity * 128; // A
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        radiusSlider.addEventListener('input', () => {
+            radiusValue.textContent = radiusSlider.value;
+        });
+
+        densityRadiusSlider.addEventListener('input', () => {
+            densityRadiusValue.textContent = densityRadiusSlider.value;
+        });
+
+        document.getElementById('calculateDensityBtn').addEventListener('click', () => {
+            drawAll();
+            drawDensityPlot();
+            updateDistance();
+        });
+
+
+        
+        // Add new functions for distance calculation
+        function normalizedDensity(x, y) {
+            const sigma = parseInt(densityRadiusSlider.value);
+            const density = calculateDensityAtPoint(x, y, sigma);
+            
+            if (maxDensity == 0 || maxDensity == null) {
+                // Calculate max density if not already set
+                maxDensity = 0;
+                for (let x = 0; x < canvas.width; x += 2) {
+                    for (let y = 0; y < canvas.height; y += 2) {
+                        const density = calculateDensityAtPoint(x, y, sigma);
+                        maxDensity = Math.max(maxDensity, density);
+                    }
+                }
+            }
+            return density / maxDensity;
+        }
+
+        function calculateModifiedDistance(start, end) {
+            const stepSize = parseInt(document.getElementById('stepLength').value);
+            const totalDistance = calculateDistance(start, end);
+            const steps = Math.ceil(totalDistance / stepSize);
+            const dx = (end.x - start.x) / steps;
+            const dy = (end.y - start.y) / steps;
+            
+            let modifiedDistance = 0;
+            
+            for (let i = 0; i < steps; i++) {
+                const x = start.x + dx * i;
+                const y = start.y + dy * i;
+                const density = normalizedDensity(x, y);
+                const segmentLength = Math.sqrt(dx * dx + dy * dy);
+                modifiedDistance += segmentLength * (1 + density);
+            }
+            
+            return modifiedDistance;
+        }
+
+        // Add event listeners
+        document.getElementById('stepLength').addEventListener('input', (e) => {
+            document.getElementById('stepLengthValue').textContent = e.target.value;
+        });
+
+
+        function calculateDistance(point1, point2) {
+            return Math.hypot(point2.x - point1.x, point2.y - point1.y);
+        }
+
+        function generateGaussianRandom(mean, stdDev) {
+            const u1 = 1 - Math.random();
+            const u2 = 1 - Math.random();
+            const randStdNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            return mean + stdDev * randStdNormal;
+        }
+
+        // Add new function to update distance display
+        function updateDistance() {
+            const distanceAB = calculateModifiedDistance(pointA, pointB);
+            const distanceAC = calculateModifiedDistance(pointA, pointC);
+            const distanceBC = calculateModifiedDistance(pointB, pointC);
+            
+            document.getElementById('distanceDisplayAB').textContent = distanceAB.toFixed(2);
+            document.getElementById('distanceDisplayAC').textContent = distanceAC.toFixed(2);
+            document.getElementById('distanceDisplayBC').textContent = distanceBC.toFixed(2);
+        }
+
+        function getRandomRadius() {
+            return Math.random() * 40 + 20;
+        }
+
+        function generateRandomClusters() {
+            clearCanvas();
+            const numClusters = 3;
+            for (let i = 0; i < numClusters; i++) {
+                const centerX = Math.random() * canvas.width;
+                const centerY = Math.random() * canvas.height;
+                const radius = getRandomRadius();
+                addGaussianCluster(centerX, centerY, radius);
+            }
+        }
+
+        function clearCanvas() {
+            densityPoints = [];
+            clusters = [];
+            drawAll();
+        }
+
+        function addGaussianCluster(centerX, centerY, radius) {
+            const numPoints = 20;
+            for (let i = 0; i < numPoints; i++) {
+                const x = generateGaussianRandom(centerX, radius/3);
+                const y = generateGaussianRandom(centerY, radius/3);
+                densityPoints.push({x, y});
+            }
+            drawAll();
+        }
+
+        function resizeCanvas() {
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+            drawAll();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function addPoint(x, y) {
+            densityPoints.push({x, y});
+            drawAll();
+        }
+
+        function removePoint(x, y) {
+            const index = densityPoints.findIndex(p => 
+                calculateDistance(p, {x, y}) < 10
+            );
+            if (index !== -1) {
+                densityPoints.splice(index, 1);
+                drawAll();
+            }
+        }
+
+        function drawAll() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw density points
+            densityPoints.forEach(point => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#0d6efd';
+                ctx.fill();
+            });
+
+            // Draw clusters
+            clusters.forEach((cluster, i) => {
+                const color = `hsl(${(i * 360) / clusters.length}, 70%, 70%)`;
+                
+                ctx.beginPath();
+                ctx.arc(cluster.center.x, cluster.center.y, 7, 0, Math.PI * 2);
+                ctx.strokeStyle = '#dc3545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                cluster.points.forEach(point => {
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                });
+            });
+
+            // Draw points A and B if enabled
+            if (showPoints) {
+                drawColoredPath(pointA, pointB, 'AB');
+                drawColoredPath(pointA, pointC, 'AC');
+                drawColoredPath(pointB, pointC, 'BC');
+
+                // Point A
+                ctx.beginPath();
+                ctx.arc(pointA.x, pointA.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff0000';
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.fillText('A', pointA.x + 10, pointA.y + 10);
+
+                // Point B
+                ctx.beginPath();
+                ctx.arc(pointB.x, pointB.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ff00';
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.fillText('B', pointB.x + 10, pointB.y + 10);
+
+                ctx.beginPath();
+                ctx.arc(pointC.x, pointC.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#0000ff';
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.fillText('C', pointC.x + 10, pointC.y + 10);
+            }
+        }
+
+        function drawColoredPath(start, end, pathName) {
+            const stepSize = parseInt(document.getElementById('stepLength').value);
+            const totalDistance = calculateDistance(start, end);
+            const steps = Math.ceil(totalDistance / stepSize);
+            const dx = (end.x - start.x) / steps;
+            const dy = (end.y - start.y) / steps;
+
+            for (let i = 0; i < steps; i++) {
+                const x1 = start.x + dx * i;
+                const y1 = start.y + dy * i;
+                const x2 = start.x + dx * (i + 1);
+                const y2 = start.y + dy * (i + 1);
+                
+                // Get density at midpoint of segment
+                const density = normalizedDensity((x1 + x2) / 2, (y1 + y2) / 2);
+                
+                // Color based on density (red for high density, blue for low)
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = `rgb(${density * 255}, 0, ${255 - density * 255})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function calculateCentroid(points) {
+            if (points.length === 0) return null;
+            const centroid = points.reduce(
+                (acc, p) => ({
+                    x: acc.x + p.x,
+                    y: acc.y + p.y
+                }),
+                {x: 0, y: 0}
+            );
+            centroid.x /= points.length;
+            centroid.y /= points.length;
+            return centroid;
+        }
+
+        function kMeans(k) {
+            if (densityPoints.length < k) return;
+
+            clusters = Array(k).fill().map(() => {
+                const randomPoint = densityPoints[Math.floor(Math.random() * densityPoints.length)];
+                return {
+                    center: {...randomPoint},
+                    points: []
+                };
+            });
+
+            let changed = true;
+            const maxIterations = 100;
+            let iteration = 0;
+
+            while (changed && iteration < maxIterations) {
+                changed = false;
+                iteration++;
+
+                clusters.forEach(cluster => cluster.points = []);
+
+                densityPoints.forEach(point => {
+                    let minDist = Infinity;
+                    let nearestCluster = null;
+
+                    clusters.forEach(cluster => {
+                        const dist = calculateDistance(cluster.center, point);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearestCluster = cluster;
+                        }
+                    });
+
+                    nearestCluster.points.push(point);
+                });
+
+                clusters.forEach(cluster => {
+                    if (cluster.points.length === 0) return;
+
+                    const newCenter = calculateCentroid(cluster.points);
+                    if (calculateDistance(newCenter, cluster.center) > 1) {
+                        changed = true;
+                    }
+                    cluster.center = newCenter;
+                });
+            }
+
+            drawAll();
+        }
+
+        container.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (showPoints) {
+                if (calculateDistance(pointA, {x, y}) < 10) {
+                    selectedPoint = pointA;
+                    return;
+                }
+                if (calculateDistance(pointB, {x, y}) < 10) {
+                    selectedPoint = pointB;
+                    return;
+                }
+                if (calculateDistance(pointC, {x, y}) < 10) {
+                    selectedPoint = pointC;
+                    return;
+                }
+            }
+
+            if (mode === 'add') {
+                addPoint(x, y);
+            } else if (mode === 'remove') {
+                removePoint(x, y);
+            } else if (mode === 'cluster') {
+                addGaussianCluster(x, y, parseInt(radiusSlider.value));
+            }
+
+            const clickedPoint = densityPoints.find(p => 
+                calculateDistance(p, {x, y}) < 10
+            );
+            if (clickedPoint) {
+                isDragging = true;
+                dragPoint = clickedPoint;
+            }
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (selectedPoint) {
+                selectedPoint.x = x;
+                selectedPoint.y = y;
+                drawAll();
+                updateDistance();
+            } else if (isDragging && dragPoint) {
+                dragPoint.x = x;
+                dragPoint.y = y;
+                drawAll();
+            }
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDragging = false;
+            dragPoint = null;
+            selectedPoint = null;
+        });
+
+        document.getElementById('addDensityBtn').addEventListener('click', () => {
+            mode = 'add';
+            document.getElementById('addDensityBtn').classList.add('active');
+            document.getElementById('addClusterBtn').classList.remove('active');
+            document.getElementById('removePointBtn').classList.remove('active');
+        });
+
+        document.getElementById('addClusterBtn').addEventListener('click', () => {
+            mode = 'cluster';
+            document.getElementById('addClusterBtn').classList.add('active');
+            document.getElementById('addDensityBtn').classList.remove('active');
+            document.getElementById('removePointBtn').classList.remove('active');
+        });
+
+        document.getElementById('removePointBtn').addEventListener('click', () => {
+            mode = 'remove';
+            document.getElementById('removePointBtn').classList.add('active');
+            document.getElementById('addDensityBtn').classList.remove('active');
+            document.getElementById('addClusterBtn').classList.remove('active');
+        });
+
+        document.getElementById('togglePointsBtn').addEventListener('click', () => {
+            showPoints = !showPoints;
+            drawAll();
+            updateDistance();
+        });
+
+        document.getElementById('clearCanvasBtn').addEventListener('click', clearCanvas);
+        
+        document.getElementById('randomClustersBtn').addEventListener('click', generateRandomClusters);
+
+        document.getElementById('calculateBtn').addEventListener('click', () => {
+            const k = parseInt(document.getElementById('kValue').value);
+            kMeans(k);
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

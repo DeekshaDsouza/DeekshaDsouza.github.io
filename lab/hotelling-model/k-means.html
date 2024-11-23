@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Means Clustering Visualization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: crosshair;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+        }
+        .point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #0d6efd;
+            transform: translate(-50%, -50%);
+            cursor: move;
+        }
+        .cluster-center {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #dc3545;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">K-Means Clustering Visualization</h5>
+                        <div class="btn-group mb-3" role="group">
+                            <button class="btn btn-outline-primary" id="addPointBtn">
+                                <i class="fas fa-plus me-2"></i>Add Points
+                            </button>
+                            <button class="btn btn-outline-danger" id="removePointBtn">
+                                <i class="fas fa-minus me-2"></i>Remove Points
+                            </button>
+                        </div>
+                        <div class="input-group mb-3" style="max-width: 200px;">
+                            <span class="input-group-text">K =</span>
+                            <input type="number" class="form-control" id="kValue" value="3" min="1" max="10">
+                        </div>
+                        <button class="btn btn-primary" id="calculateBtn">
+                            <i class="fas fa-calculator me-2"></i>Calculate Clusters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div id="canvas-container">
+                            <canvas id="canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let points = [];
+        let clusters = [];
+        let mode = 'add';
+        let isDragging = false;
+        let dragPoint = null;
+
+        const canvas = document.getElementById('canvas');
+        const container = document.getElementById('canvas-container');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+            drawPoints();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function addPoint(x, y) {
+            points.push({x, y});
+            drawPoints();
+        }
+
+        function removePoint(x, y) {
+            const index = points.findIndex(p => 
+                Math.hypot(p.x - x, p.y - y) < 10
+            );
+            if (index !== -1) {
+                points.splice(index, 1);
+                drawPoints();
+            }
+        }
+
+        function drawPoints() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw points
+            points.forEach(point => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#0d6efd';
+                ctx.fill();
+            });
+
+            // Draw clusters
+            clusters.forEach((cluster, i) => {
+                const color = `hsl(${(i * 360) / clusters.length}, 70%, 70%)`;
+                
+                // Draw cluster center
+                ctx.beginPath();
+                ctx.arc(cluster.center.x, cluster.center.y, 7, 0, Math.PI * 2);
+                ctx.strokeStyle = '#dc3545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw points belonging to cluster
+                cluster.points.forEach(point => {
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                });
+            });
+        }
+
+        function kMeans(k) {
+            if (points.length < k) return;
+
+            // Initialize random centroids
+            clusters = Array(k).fill().map(() => {
+                const randomPoint = points[Math.floor(Math.random() * points.length)];
+                return {
+                    center: {...randomPoint},
+                    points: []
+                };
+            });
+
+            let changed = true;
+            const maxIterations = 100;
+            let iteration = 0;
+
+            while (changed && iteration < maxIterations) {
+                changed = false;
+                iteration++;
+
+                // Reset cluster points
+                clusters.forEach(cluster => cluster.points = []);
+
+                // Assign points to nearest cluster
+                points.forEach(point => {
+                    let minDist = Infinity;
+                    let nearestCluster = null;
+
+                    clusters.forEach(cluster => {
+                        const dist = Math.hypot(
+                            cluster.center.x - point.x,
+                            cluster.center.y - point.y
+                        );
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearestCluster = cluster;
+                        }
+                    });
+
+                    nearestCluster.points.push(point);
+                });
+
+                // Update cluster centers
+                clusters.forEach(cluster => {
+                    if (cluster.points.length === 0) return;
+
+                    const newCenter = cluster.points.reduce(
+                        (acc, p) => ({
+                            x: acc.x + p.x,
+                            y: acc.y + p.y
+                        }),
+                        {x: 0, y: 0}
+                    );
+
+                    newCenter.x /= cluster.points.length;
+                    newCenter.y /= cluster.points.length;
+
+                    if (Math.hypot(
+                        newCenter.x - cluster.center.x,
+                        newCenter.y - cluster.center.y
+                    ) > 1) {
+                        changed = true;
+                    }
+
+                    cluster.center = newCenter;
+                });
+            }
+
+            drawPoints();
+        }
+
+        container.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (mode === 'add') {
+                addPoint(x, y);
+            } else if (mode === 'remove') {
+                removePoint(x, y);
+            }
+
+            // Check if clicking on existing point to drag
+            const clickedPoint = points.find(p => 
+                Math.hypot(p.x - x, p.y - y) < 10
+            );
+            if (clickedPoint) {
+                isDragging = true;
+                dragPoint = clickedPoint;
+            }
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (isDragging && dragPoint) {
+                const rect = canvas.getBoundingClientRect();
+                dragPoint.x = e.clientX - rect.left;
+                dragPoint.y = e.clientY - rect.top;
+                drawPoints();
+            }
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDragging = false;
+            dragPoint = null;
+        });
+
+        document.getElementById('addPointBtn').addEventListener('click', () => {
+            mode = 'add';
+            document.getElementById('addPointBtn').classList.add('active');
+            document.getElementById('removePointBtn').classList.remove('active');
+        });
+
+        document.getElementById('removePointBtn').addEventListener('click', () => {
+            mode = 'remove';
+            document.getElementById('removePointBtn').classList.add('active');
+            document.getElementById('addPointBtn').classList.remove('active');
+        });
+
+        document.getElementById('calculateBtn').addEventListener('click', () => {
+            const k = parseInt(document.getElementById('kValue').value);
+            kMeans(k);
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
