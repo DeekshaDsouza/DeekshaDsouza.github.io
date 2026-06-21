@@ -1,0 +1,9 @@
+# macOS and editor noise
+.DS_Store
+*.swp
+*.swo
+
+# Local preview and generated QA artifacts
+tmp/
+.impeccable/
+*.log
