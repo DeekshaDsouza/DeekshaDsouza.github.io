@@ -55,6 +55,8 @@ a:hover, a:focus-visible { color: var(--link-active); }
   font-size: .875rem;
 }
 
+.pdf-link { font-weight: 600; white-space: nowrap; }
+
 .masthead > span, h2 {
   font-weight: 600;
   text-transform: uppercase;
